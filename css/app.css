@@ -1,0 +1,49 @@
+/*
+Pomidoro App
+app.css
+
+created by @sauliuz
+PopularOwl Labs // www.popularowl.com
+For tutorial on www.htmlcenter.com
+*/
+
+
+.slider {
+  margin-bottom: 0;
+  height: 150px;
+}
+
+.slider li img {
+  width: 100%;
+}
+
+.form-wrapper {
+  padding: 10px;
+}
+
+
+.movieimg {
+  width: 365px;
+  height: 282px;
+}
+
+.bar-title
+{
+	background: #248DC1;
+	padding: 0;
+	color: #eee;
+	font-size: 14px;
+	text-align: center;
+	height: 50px;
+	color: #fff;
+	-webkit-box-shadow: rgba(111, 151, 182, 0.498039) 0px 1px 0px 0px inset, rgba(111, 151, 182, 0.2) 0px -1px 0px 0px inset, rgba(0, 0, 0, 0.2) 0px 1px 1px 0px;
+	-webkit-font-smoothing: antialiased;
+	background-color: rgb(81, 127, 164);
+	background-image: -webkit-linear-gradient(top, rgb(81, 127, 164), rgb(48, 96, 136));
+	background-position: 50% 50%, 50% 50%;
+	box-shadow: rgba(111, 151, 182, 0.498039) 0px 1px 0px 0px inset, rgba(111, 151, 182, 0.2) 0px -1px 0px 0px inset, rgba(0, 0, 0, 0.2) 0px 1px 1px 0px;
+	color: #f2f2f2;
+}
+.bar-title .title{
+	font-size: 24px;
+}

@@ -1,0 +1,140 @@
+/* apply a natural box layout model to all elements */
+* { -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; }
+
+html
+{
+	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    height:100%;
+    font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body
+{ 
+	font-size: 16px;
+	margin: 0;
+	padding: 0;
+    height:100%;
+    padding: 50px 0px 0px 0px;
+    
+}
+#header
+{
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #248DC1;
+    padding: 0;
+    color: #eee;
+    font-size: 14px;
+    line-height: 50px;
+    text-align: center;
+    height: 50px;
+    color:#fff;
+
+    -webkit-box-shadow: rgba(111, 151, 182, 0.498039) 0px 1px 0px 0px inset, rgba(111, 151, 182, 0.2) 0px -1px 0px 0px inset, rgba(0, 0, 0, 0.2) 0px 1px 1px 0px;
+    -webkit-font-smoothing: antialiased;
+    background-color: rgb(81, 127, 164);
+    background-image: -webkit-linear-gradient(top, rgb(81, 127, 164), rgb(48, 96, 136));
+    background-position: 50% 50%, 50% 50%;
+    box-shadow: rgba(111, 151, 182, 0.498039) 0px 1px 0px 0px inset, rgba(111, 151, 182, 0.2) 0px -1px 0px 0px inset, rgba(0, 0, 0, 0.2) 0px 1px 1px 0px;
+    color:#f2f2f2;
+}
+
+#header h1{
+    font-family:'Open Sans',Sans-Serif;
+    font-size: 26px;
+    margin:0;padding: 0;
+    text-align: center;
+    /*padding-left: 50px;*/
+}
+#header .btn {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 35px;
+    height: 35px;
+    line-height: 36px;
+    background-color: #58B1FC;
+    border-radius: 100px;
+}
+#header .mButton, #header #refresh {
+    position: absolute;
+    top: 6px;
+    display: none;
+    right: 6px;
+    width: 35px;
+    height: 35px;
+    line-height: 36px;
+    background-color: #58B1FC;
+    border-radius: 100px;
+}
+#header #location {
+    right: 50px;
+    display: block;
+    right: 10px;
+}
+#header #bulls {
+    right: 94px;
+    display: :none;
+}
+#header a, #header .btn{
+    cursor: pointer;
+}
+#header a:active, #header .btn:active
+{
+    opacity: 0.5;
+}
+.screen{
+    position:absolute;
+    width:100%;
+    background:#f0f0f0;
+    display: none;
+}
+body .screen.active{
+    display: block;
+}
+#header .firstBtn {
+    display: none;
+}
+#header .firstBtn.active{
+    display: block;
+}
+#post_screen{
+    text-align: center;
+}
+#outerpost{
+    max-width: 100%;
+    margin:10px;
+    padding: 10px;
+    background: #fff;
+    border:1px solid #ccc;
+    border-radius: 5px;
+    color: #444;
+}
+#outerpost a{
+    color:#248DC1;
+}
+#outerpost img{
+    max-width: 100%;
+}
+#outerpost>div{
+    margin: auto;
+}
+.postheader{
+    padding: 8px 0px;
+    text-align: left;
+    width: 100%;
+}
+.postcaption{
+    font-size:0.8em;text-align:justify;
+    border-top: 1px solid #ccc;
+    padding:8px 0 0 0;
+}
+#outerpost .stats{
+    vertical-align: top;
+    text-align: right;
+    font-size: 0.7em;
+    line-height: 20px;
+}

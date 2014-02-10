@@ -1,6 +1,11 @@
 var InstaroundApp = angular.module('InstaroundApp', ['ngRoute']);
 
-
+InstaroundApp.run(['$location', '$rootScope', function($location, $rootScope) {
+    $rootScope.$on('$routeChangeSuccess', function (event, current, previous) {
+        //$rootScope.title = current.$$route.title;
+    	if($rootScope.activateView) $rootScope.activateView(current.$$route);
+    });
+}]);
 
 ////////// ROUTING /////////////////////////
 
@@ -15,10 +20,10 @@ InstaroundApp.config(function ($routeProvider) {
 		})
 		// theaters list page
 		//
-		.when('/post/:postId',
+		.when('/photo/:id',
 		{
-			controller: 'TheatersController',
-			templateUrl: 'views/TheatersView.html'
+			controller: 'PhotoController',
+			templateUrl: 'views/PhotoView.html'
 
 		})
 		// theaters list page
@@ -58,8 +63,9 @@ InstaroundApp.config(function ($routeProvider) {
 
 // RootController
 //
-InstaroundApp.controller('MapController', function($scope,$http,$routeParams,InstagramFactory){
+InstaroundApp.controller('MapController', function($scope,$array,$http,$routeParams,$location,debounce,InstagramFactory){
 	
+	var map,oms,center,userLocation,mymarker,to_refresh,posts;
 	init();
 
 	function init(){
@@ -67,38 +73,42 @@ InstaroundApp.controller('MapController', function($scope,$http,$routeParams,Ins
 		try{
 			navigator.splashscreen.hide();
 		} catch(e){console.log(e);}
+
+		$scope.InstagramFactory = InstagramFactory;
+		posts = InstagramFactory.posts;
+		$scope.getPosts =function(){return posts;};
+		$scope.$watch($scope.getPosts,updateMarkers,true);
 	};
 
 	function initMap(_lat,_lon){
-		if($scope.map != null) return;
+		if(map != null) return;
 		var myOptions = {
 		    zoom: 11,
 		    center: new google.maps.LatLng(_lat==null?-22.907072809355967:_lat, _lon==null?-43.21398052978515:_lon),
 		    mapTypeId: google.maps.MapTypeId.ROADMAP,
 		    streetViewControl: false
 		};
-		$scope.map = new google.maps.Map(document.getElementById('map_canvas'), myOptions);
-		$scope.oms = new OverlappingMarkerSpiderfier($scope.map,{nearbyDistance:44});
-		$scope.markers = [];
-		google.maps.event.addListener($scope.map, 'idle', function() {
-			if($scope.to_refresh>0) { 
-				clearTimeout($scope.to_refresh);
-				$scope.to_refresh = 0;
-				console.log('clearedTO:'+$scope.to_refresh);
+		map = new google.maps.Map(document.getElementById('map_canvas'), myOptions);
+		oms = new OverlappingMarkerSpiderfier(map,{nearbyDistance:44});
+		google.maps.event.addListener(map, 'idle', function() {
+			if(to_refresh>0) { 
+				clearTimeout(to_refresh);
+				to_refresh = 0;
+				console.log('clearedTO:'+to_refresh);
 			}
-			$scope.to_refresh = setTimeout(function(){
+			to_refresh = setTimeout(function(){
 				setCenter();
 				console.log('callinRefresh');
 			},800);
-			console.log('setTO->'+$scope.to_refresh);
+			console.log('setTO->'+to_refresh);
 
     	});
     };
 
     function setCenter(){
-    	var center = $scope.map.getCenter();
-    	$scope.lat = center.lat();
-    	$scope.lon = center.lng();
+    	var center = map.getCenter();
+    	lat = center.lat();
+    	lon = center.lng();
     	refreshNearby();
     };
 
@@ -110,17 +120,17 @@ InstaroundApp.controller('MapController', function($scope,$http,$routeParams,Ins
 						 'Longitude: ' + position.coords.longitude + '<br />' +
 						 'Altitude: ' + position.coords.altitude + '<br />' +
 						 'Accuracy: ' + position.coords.accuracy + '<br />' +*/
-			$scope.lat = position.coords.latitude;
-			$scope.lon = position.coords.longitude;
-			$scope.userLocation = new google.maps.LatLng($scope.lat, $scope.lon);
-			initMap($scope.lat,$scope.lon);
-			if($scope.mymarker != null) $scope.mymarker.setMap(null);
-	    	$scope.mymarker = new google.maps.Marker({
-	                    	position: $scope.userLocation,
-	                        map: $scope.map,
+			lat = position.coords.latitude;
+			lon = position.coords.longitude;
+			userLocation = new google.maps.LatLng(lat, lon);
+			initMap(lat,lon);
+			if(mymarker != null) mymarker.setMap(null);
+	    	mymarker = new google.maps.Marker({
+	                    	position: userLocation,
+	                        map: map,
 	                        icon: 'images/circle.png'
 	                    });
-	    	$scope.map.setCenter($scope.userLocation);
+	    	map.setCenter(userLocation);
 			refreshNearby(true);
 		},function(e){
 			alert('error: '+ e.message);
@@ -129,72 +139,93 @@ InstaroundApp.controller('MapController', function($scope,$http,$routeParams,Ins
 		});
 	};
 	
-	var allMarkers = {};
-	var posts = {};
+	function updateMarkers(newPhotos, oldPhotos) {
+        var $newPhotos = $array(newPhotos);
+        var $oldPhotos = $array(oldPhotos);
+
+        if ($newPhotos.equalById(oldPhotos)) {
+            return;
+        }
+
+        $array(newPhotos)
+        .concat(oldPhotos)
+        .unique()
+        .forEach(function (photo) {
+            var isOld = $oldPhotos.containsById(photo);
+            var isNew = $newPhotos.containsById(photo);
+
+            //se nao tem na old e tem na new
+            if (isNew && !isOld) {
+                photo.hash = photo.link.split('instagram.com/p/')[1].split('/')[0];
+                addPhotoToMap(photo);
+                if(oldPhotos.length == 0)
+                	map.fitBounds(bounds);
+            }
+
+            //se tem na old e nao tem na new
+            if (!isNew && isOld) {
+                removePhotoFromMap(photo);
+            }
+        });
+    };
+    var bounds;
+    function addPhotoToMap(photo)
+    {
+		var pos = new google.maps.LatLng(photo.location.latitude, photo.location.longitude);
+		bounds = bounds || new google.maps.LatLngBounds();
+		bounds.extend(pos);
+    	var pinIcon = new google.maps.MarkerImage(
+		    photo.images.thumbnail.url,
+		    null, /* size is determined at runtime */
+		    null, /* origin is 0,0 */
+		    null, /* anchor is bottom center of the scaled image */
+		    new google.maps.Size(44, 44)
+		);  
+		var marker = new google.maps.Marker({
+        	position: pos,
+            map: map,
+            icon: pinIcon
+        });
+        oms.addMarker(marker);
+        marker.hash = photo.hash;
+	    oms.addListener('click', debounce(function(marker, event) {
+    		//console.log('go2post(marker.content)');
+			$location.path('/photo/' + marker.hash);
+			$scope.$apply();
+		},100,false));
+    };
+
+    function removePhotoFromMap(photo)
+    {
+		oms.removeMarker(photo.marker);
+    };
+
 	function refreshNearby(setBounds)
 	{
     	var bounds = new google.maps.LatLngBounds();
 		// show loading: TODO
-		InstagramFactory.getNearby($scope.lat,$scope.lon).success(
-			function(resp){
-          		//console.log(resp);
 
-          		// tem mto marker ja?
-          		if(Object.keys(allMarkers).length>150)
-          		{
-          			console.log('clean markers');
-	          		angular.forEach(that.markers,function(i,o){
-						$scope.oms.removeMarker(o);
-	      				o.setMap(null);
-
-	          		});
-	          		allMarkers = {};
-          		}
-          		angular.forEach(resp.data,function(o){
-                	var pos = new google.maps.LatLng(o.location.latitude, o.location.longitude);
-					bounds.extend(pos);
-                	if(allMarkers[o.link] != null) return; // -> se ja tiver no client nao faz nada
-                	var pinIcon = new google.maps.MarkerImage(
-					    o.images.thumbnail.url,
-					    null, /* size is determined at runtime */
-					    null, /* origin is 0,0 */
-					    null, /* anchor is bottom center of the scaled image */
-					    new google.maps.Size(44, 44)
-					);  
-            		var marker = new google.maps.Marker({
-                    	position: pos,
-                        map: $scope.map,
-                        icon: pinIcon
-                    });
-                    $scope.oms.addMarker(marker);
-                    allMarkers[o.link] = marker;
-                    posts[o.link] = o;
-                    var olink = o.link;
-
-					marker.content = 'TODO';//getPostContent(posts[olink]);
-				    $scope.oms.addListener('click', function(marker, event) {
-		        		console.log('go2post(marker.content)');
-					});
-
-              	});
-				if(setBounds)
-              		$scope.map.fitBounds(bounds);
-    			
-    			InstagramFactory.posts = allMarkers;
-    			//$('#loadingBtn').hide(); : TODO
-      		}
-  		);
+		InstagramFactory.getNearby(lat,lon,function(data){
+			var $posts = $array(posts);			
+			$array(data.data).forEach(function(o){ 
+				if(!$posts.contains(o)){ 
+					o.id = o.link;
+					posts.push(o); }
+				}
+			);
+		});
+		
 	}
 });
 
 // PostController
 //
-InstaroundApp.controller('PhotoController', function($scope,$routeParams,InstagramFactory){
+InstaroundApp.controller('PhotoController', function($scope,$routeParams,$location,$rootScope,$route,InstagramFactory){
 	
 	// This controller is going to set theaters
 	// variable for the $scope object in order for view to
 	// display its contents on the screen as html 
-	$scope.post = [];
+	$scope.post = {};
 
 	// Just a housekeeping.
 	// In the init method we are declaring all the
@@ -202,8 +233,15 @@ InstaroundApp.controller('PhotoController', function($scope,$routeParams,Instagr
 	init();
 
 	function init(){
-		$scope.theaters = theatersFactory.getTheaters();
-	}	
+	}
+
+	$scope.$watch(function() { return $location.path(); }, function(newValue, oldValue){  
+	    //if ($scope.loggedIn == false && newValue != '/login'){  
+	    //        $location.path('/login');  
+	    //}
+	    if(newValue.indexOf('/photo')>-1)
+	    	$scope.post = InstagramFactory.getPost($location.path().split('/photo/')[1]);  
+	});
 });
 
 // TheatersController
@@ -221,7 +259,6 @@ InstaroundApp.controller('TheatersController', function($scope,$routeParams,Inst
 	init();
 
 	function init(){
-		$scope.theaters = theatersFactory.getTheaters();
 	}	
 });
 
@@ -239,14 +276,17 @@ InstaroundApp.controller('SettingsController', function($scope){
 // makes them awailable to controller
 // so it can pass values to the temmplate
 //
-InstaroundApp.factory('InstagramFactory', function($http){
-	var posts = {};
+InstaroundApp.factory('InstagramFactory', function($http,$array){
+	var posts = [];
 	return {
 		getNearby: function(lat,lon,cb){
-
-			return $http.get('https://api.instagram.com/v1/media/search?lat='+lat+'&lng='+lon+'&client_id=f9a471af537e46a48d14e83f76949f89');
-		},
-		posts = posts
+			$http.get('https://api.instagram.com/v1/media/search?lat='+lat+'&lng='+lon+'&client_id=f9a471af537e46a48d14e83f76949f89').success(function(data){
+				cb(data);
+			});
+		}, posts: posts,
+		getPost: function (hash) {
+			return posts.filter(function(x){ return x.hash == hash})[0];
+		}
 	}
 });
 
@@ -278,7 +318,9 @@ InstaroundApp.factory('theatersFactory', function(){
 	return factory;
 });
 
-
+function hashCode(s){
+  return s.split("").reduce(function(a,b){a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);              
+}
 function parseInstagramDate(tdate) {
     var system_date = new Date(tdate);
     var user_date = new Date();
@@ -297,3 +339,111 @@ function parseInstagramDate(tdate) {
     return "on " + system_date;
 }
 
+InstaroundApp.factory('$array', function () {
+    var $array = function (array) {
+        array = array || [];
+
+        return {
+            value: array,
+            concat: function (array2) {
+                return $array(array.concat(array2));
+            },
+            forEach: function (cb) {
+                array.forEach(cb);
+
+                return this;
+            },
+            every: function (cb) {
+                return array.every(cb);
+            },
+            contains: function (v) {
+                if (!array) {
+                    return false;
+                }
+
+                for (var i = 0; i < array.length; i++) {
+                    if (array[i] === v) return true;
+                }
+                return false;
+            },
+            containsById: function (v) {
+                if (!array || !v) {
+                    return false;
+                }
+
+                return this.mapIds().contains(v.id);
+            },
+            getById: function(id){
+    			return array.filter(function(x){return x.id == id})[0];
+            },
+            unique: function () {
+                var arr = [];
+
+                for (var i = 0; i < array.length; i++) {
+                    if (!$array(arr).contains(array[i])) {
+                        arr.push(array[i]);
+                    }
+                }
+
+                return $array(arr);
+            },
+            mapIds: function () {
+                var idArray = array.map(function (ele) {
+                    return ele.id;
+                });
+
+                return $array(idArray);
+            },
+            equalById: function (array2) {
+                var that = this;
+
+                var ret =
+                this
+                .mapIds()
+                .every(function (a) {
+                    return $array(array2).mapIds().contains(a);
+                })
+                &&
+                $array(array2)
+                .mapIds()
+                .every(function (a) {
+                    return that.mapIds().contains(a);
+                });
+
+                return ret;
+            },
+        };
+    };
+
+    return $array;
+});
+
+// Create an AngularJS service called debounce
+InstaroundApp.factory('debounce', function ($timeout, $q) {
+    return function (func, wait, immediate) {
+        var timeout;
+        var deferred = $q.defer();
+        return function () {
+            var context = this, args = arguments;
+            var later = function () {
+                timeout = null;
+                if (!immediate) {
+                    deferred.resolve(func.apply(context, args));
+                    deferred = $q.defer();
+                }
+            };
+            var callNow = immediate && !timeout;
+            if (timeout) {
+                $timeout.cancel(timeout);
+            }
+            timeout = $timeout(later, wait);
+            if (callNow) {
+                deferred.resolve(func.apply(context, args));
+                deferred = $q.defer();
+            }
+            return deferred.promise;
+        };
+    };
+});
+
+//usage: debounce(function (a){ alert(a); },1000,false);

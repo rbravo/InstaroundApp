@@ -1,0 +1,32 @@
+<!--
+// Pomidoro Mobile Application
+// TheatersControllerView.html
+//
+// created by @sauliuz
+// PopularOwl Labs // www.popularowl.com
+// Visit www.htmlcenter.com 
+// for more mobile application templates
+-->
+
+  <div class="content">
+    <div id="outerpost"><img style="
+      width:{{ post.images.standard_resolution.width }};
+      height:{{post.images.standard_resolution.height}};
+      max-width:{{that.winWidth}}px;
+      max-height:{{that.winHeight}}px;" 
+      src='{{post.images.standard_resolution.url}}'/>
+    <table class="postheader">
+      <tr>
+        <td>
+          <a style='word-break:break-all;' href='#'>{{post.user.username}}</a>
+        </td>
+        <td width='166' class='stats'>
+          <img src="images/heart.png" style='position:relative;margin-right:4px;'><span>{{post.likes.count}}</span>
+          <img src="images/comment.png" style='position:relative;margin-left:10px;margin-right:4px;'><span>{{post.comments.count}}</span>
+          <i style="margin-left:10px;">{{parseInstagramDate(dateInt)}}</i>
+        </td>
+      </tr>
+    </table>
+    <div class='postcaption'>{{post.caption.text}}</div>
+    </div>
+  </div>

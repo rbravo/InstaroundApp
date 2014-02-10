@@ -1,28 +1,26 @@
-var InstaroundApp = angular.module('InstaroundApp',[]);
+var InstaroundApp = angular.module('InstaroundApp', ['ngRoute']);
+
 
 
 ////////// ROUTING /////////////////////////
 
-// Deffining $routeProvider applicatiom module
+// Defining $routeProvider applicatiom module
 //
 InstaroundApp.config(function ($routeProvider) {
 	$routeProvider
-		
-		// We are going to define routes,
-		// controllers and templates associated
-		// with these routes.
-		// You can change these but make sure
-		// you know what you are doing
-		//
-
-		// main route
-		//
 		.when('/',
 		{
 			controller: 'MapController',
 			templateUrl: 'views/MapView.html'
 		})
-		
+		// theaters list page
+		//
+		.when('/post/:postId',
+		{
+			controller: 'TheatersController',
+			templateUrl: 'views/TheatersView.html'
+
+		})
 		// theaters list page
 		//
 		.when('/theaters',
@@ -31,7 +29,6 @@ InstaroundApp.config(function ($routeProvider) {
 			templateUrl: 'views/TheatersView.html'
 
 		})
-
 		// settings page
 		//
 		.when('/settings',
@@ -48,10 +45,10 @@ InstaroundApp.config(function ($routeProvider) {
 
 });
 
-InstaroundApp.config(function ($httpProvider){
-    $httpProvider.defaults.useXDomain = true;
-    delete $httpProvider.defaults.headers.common['X-Requested-With'];
-});
+// InstaroundApp.config(function ($httpProvider){
+//     $httpProvider.defaults.useXDomain = true;
+//     delete $httpProvider.defaults.headers.common['X-Requested-With'];
+// });
 
 
 ///////// CONTROLERS ////////////////////////////
@@ -61,7 +58,7 @@ InstaroundApp.config(function ($httpProvider){
 
 // RootController
 //
-InstaroundApp.controller('MapController', function($scope,$http,InstagramFactory){
+InstaroundApp.controller('MapController', function($scope,$http,$routeParams,InstagramFactory){
 	
 	init();
 
@@ -134,11 +131,11 @@ InstaroundApp.controller('MapController', function($scope,$http,InstagramFactory
 	
 	var allMarkers = {};
 	var posts = {};
-	function refreshNearby()
+	function refreshNearby(setBounds)
 	{
+    	var bounds = new google.maps.LatLngBounds();
 		// show loading: TODO
-		//InstagramFactory.getNearby($scope.lat,$scope.lon).success(
-		$http.get('https://api.instagram.com/v1/media/search?lat='+$scope.lat+'&lng='+$scope.lon+'&client_id=f9a471af537e46a48d14e83f76949f89').success(
+		InstagramFactory.getNearby($scope.lat,$scope.lon).success(
 			function(resp){
           		//console.log(resp);
 
@@ -146,14 +143,14 @@ InstaroundApp.controller('MapController', function($scope,$http,InstagramFactory
           		if(Object.keys(allMarkers).length>150)
           		{
           			console.log('clean markers');
-	          		Angular.forEach(that.markers,function(i,o){
+	          		angular.forEach(that.markers,function(i,o){
 						$scope.oms.removeMarker(o);
 	      				o.setMap(null);
 
 	          		});
 	          		allMarkers = {};
           		}
-          		Angular.forEach(resp.data,function(i,o){
+          		angular.forEach(resp.data,function(o){
                 	var pos = new google.maps.LatLng(o.location.latitude, o.location.longitude);
 					bounds.extend(pos);
                 	if(allMarkers[o.link] != null) return; // -> se ja tiver no client nao faz nada
@@ -183,15 +180,35 @@ InstaroundApp.controller('MapController', function($scope,$http,InstagramFactory
 				if(setBounds)
               		$scope.map.fitBounds(bounds);
     			
+    			InstagramFactory.posts = allMarkers;
     			//$('#loadingBtn').hide(); : TODO
       		}
   		);
 	}
 });
 
+// PostController
+//
+InstaroundApp.controller('PhotoController', function($scope,$routeParams,InstagramFactory){
+	
+	// This controller is going to set theaters
+	// variable for the $scope object in order for view to
+	// display its contents on the screen as html 
+	$scope.post = [];
+
+	// Just a housekeeping.
+	// In the init method we are declaring all the
+	// neccesarry settings and assignments
+	init();
+
+	function init(){
+		$scope.theaters = theatersFactory.getTheaters();
+	}	
+});
+
 // TheatersController
 //
-InstaroundApp.controller('TheatersController', function($scope,theatersFactory){
+InstaroundApp.controller('TheatersController', function($scope,$routeParams,InstagramFactory){
 	
 	// This controller is going to set theaters
 	// variable for the $scope object in order for view to
@@ -223,11 +240,13 @@ InstaroundApp.controller('SettingsController', function($scope){
 // so it can pass values to the temmplate
 //
 InstaroundApp.factory('InstagramFactory', function($http){
+	var posts = {};
 	return {
 		getNearby: function(lat,lon,cb){
 
 			return $http.get('https://api.instagram.com/v1/media/search?lat='+lat+'&lng='+lon+'&client_id=f9a471af537e46a48d14e83f76949f89');
-		}
+		},
+		posts = posts
 	}
 });
 

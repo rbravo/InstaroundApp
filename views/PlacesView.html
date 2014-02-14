@@ -1,0 +1,35 @@
+<!--
+// Pomidoro Mobile Application
+// TheatersControllerView.html
+//
+// created by @sauliuz
+// PopularOwl Labs // www.popularowl.com
+// Visit www.htmlcenter.com 
+// for more mobile application templates
+-->
+  <!-- <header class="bar-title">
+    <a class="button-prev" href="#/">
+      Back
+    </a>
+    <h1 class="title">Find a theater</h1>
+  </header> -->
+  <nav class="bar-standard bar-header-secondary">
+    <form ng-submit="searchNearby()">
+      <input type="search" placeholder="Search" ng-model="query">
+    </form>
+  </nav>
+
+
+  <div class="content">
+
+    <ul class="list">
+      <li class="list-divider">{{places.length}} places nearby</li>
+      
+      <li data-ng-repeat="place in places">
+        <a href="#" ng-click="goToPlace(place)">
+          <strong>{{place.name}}</strong>
+          <p>{{place.distance}}m away</p>
+        </a>
+      </li>
+    </ul>
+  </div>

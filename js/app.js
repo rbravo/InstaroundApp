@@ -1,17 +1,16 @@
-var InstaroundApp = angular.module('InstaroundApp', ['ngRoute']);
-
-InstaroundApp.run(['$location', '$rootScope', function($location, $rootScope) {
-    $rootScope.$on('$routeChangeSuccess', function (event, current, previous) {
-        //$rootScope.title = current.$$route.title;
-    	if($rootScope.activateView) $rootScope.activateView(current.$$route);
-    });
-}]);
+var InstaroundApp = angular.module('InstaroundApp', ['ngRoute'])
+.directive('photoView', function() {
+    return {
+        //scope: {},
+        templateUrl: 'views/PhotoView.html'
+    }
+})
 
 ////////// ROUTING /////////////////////////
 
 // Defining $routeProvider applicatiom module
 //
-InstaroundApp.config(function ($routeProvider) {
+.config(function ($routeProvider) {
 	$routeProvider
 		.when('/',
 		{
@@ -28,10 +27,10 @@ InstaroundApp.config(function ($routeProvider) {
 		})
 		// theaters list page
 		//
-		.when('/theaters',
+		.when('/places',
 		{
-			controller: 'TheatersController',
-			templateUrl: 'views/TheatersView.html'
+			controller: 'PlacesController',
+			templateUrl: 'views/PlacesView.html'
 
 		})
 		// settings page
@@ -48,7 +47,7 @@ InstaroundApp.config(function ($routeProvider) {
 		// to redirect to the RootController
 		.otherwise({ redirectTo: '/'});
 
-});
+})
 
 // InstaroundApp.config(function ($httpProvider){
 //     $httpProvider.defaults.useXDomain = true;
@@ -61,14 +60,22 @@ InstaroundApp.config(function ($routeProvider) {
 // we have defined in the router
 //
 
-// RootController
-//
-InstaroundApp.controller('MapController', function($scope,$array,$http,$routeParams,$location,debounce,InstagramFactory){
-	
+// MainController
+.controller('MainController', function($page,$http,$routeParams,$location,$scope){
+	$scope.page = $page;
+})
+// MapController
+.controller('MapController', function($scope,$array,$page,$http,$routeParams,$location,debounce,InstagramFactory,$timeout){
+	$scope.page = $page;
 	var map,oms,center,userLocation,mymarker,to_refresh,posts;
 	init();
 
 	function init(){
+		// seting page layout for MAP
+		$page.showHeader = false;
+		$scope.showPhotoFromMap = false;
+
+		// init controller with user's location
 		getLocation();
 		try{
 			navigator.splashscreen.hide();
@@ -78,19 +85,21 @@ InstaroundApp.controller('MapController', function($scope,$array,$http,$routePar
 		posts = InstagramFactory.posts;
 		$scope.getPosts =function(){return posts;};
 		$scope.$watch($scope.getPosts,updateMarkers,true);
+		updateMarkers(posts,[]);
 	};
 
 	function initMap(_lat,_lon){
 		if(map != null) return;
 		var myOptions = {
-		    zoom: 11,
-		    center: new google.maps.LatLng(_lat==null?-22.907072809355967:_lat, _lon==null?-43.21398052978515:_lon),
+		    zoom: $page.lastZoom != null ? $page.lastZoom : 11,
+		    center: $page.lastCenter != null ? $page.lastCenter : new google.maps.LatLng(_lat==null?-22.907072809355967:_lat, _lon==null?-43.21398052978515:_lon),
 		    mapTypeId: google.maps.MapTypeId.ROADMAP,
 		    streetViewControl: false
 		};
 		map = new google.maps.Map(document.getElementById('map_canvas'), myOptions);
-		oms = new OverlappingMarkerSpiderfier(map,{nearbyDistance:44});
 		google.maps.event.addListener(map, 'idle', function() {
+			$page.lastZoom = map.getZoom();
+			$page.lastCenter = map.getCenter();
 			if(to_refresh>0) { 
 				clearTimeout(to_refresh);
 				to_refresh = 0;
@@ -103,6 +112,23 @@ InstaroundApp.controller('MapController', function($scope,$array,$http,$routePar
 			console.log('setTO->'+to_refresh);
 
     	});
+
+		oms = new OverlappingMarkerSpiderfier(map,{nearbyDistance:44});
+    	oms.addListener('click', function(marker, event) {
+    		//console.log('go2post(marker.content)');
+    		$page.backButtonVisible = true;
+    		$page.backButtonFcn = function(){ 
+				$scope.showPhotoFromMap = false;
+				$page.showHeader = false;
+    			//$location.path = '/'; 
+    		};
+			//$location.path('/photo/' + marker.hash);
+			$scope.post = marker.photo;
+			$page.showHeader = true;
+			$scope.showPhotoFromMap = true;
+			console.log(' clicked photo: '+marker.photo.id + ' hash:' + marker.hash);
+			$scope.$apply();
+		});
     };
 
     function setCenter(){
@@ -140,6 +166,18 @@ InstaroundApp.controller('MapController', function($scope,$array,$http,$routePar
 	};
 	
 	function updateMarkers(newPhotos, oldPhotos) {
+
+		if(map == null) {
+			$timeout(function(){updateMarkers(newPhotos,oldPhotos);},400);
+			return;
+		}
+
+		// if(oldPhotos && oldPhotos.length > 150) {
+		// 	$array(oldPhotos).forEach(function(d){ removePhotoFromMap(d); });
+		// 	oldPhotos.length = 0;
+		// } 
+
+
         var $newPhotos = $array(newPhotos);
         var $oldPhotos = $array(oldPhotos);
 
@@ -169,8 +207,10 @@ InstaroundApp.controller('MapController', function($scope,$array,$http,$routePar
         });
     };
     var bounds;
+    var markerCount = 0;
     function addPhotoToMap(photo)
     {
+    	console.log('markerAdded:'+markerCount++);
 		var pos = new google.maps.LatLng(photo.location.latitude, photo.location.longitude);
 		bounds = bounds || new google.maps.LatLngBounds();
 		bounds.extend(pos);
@@ -188,16 +228,14 @@ InstaroundApp.controller('MapController', function($scope,$array,$http,$routePar
         });
         oms.addMarker(marker);
         marker.hash = photo.hash;
-	    oms.addListener('click', debounce(function(marker, event) {
-    		//console.log('go2post(marker.content)');
-			$location.path('/photo/' + marker.hash);
-			$scope.$apply();
-		},100,false));
+        marker.photo = photo;
+
     };
 
     function removePhotoFromMap(photo)
     {
-		oms.removeMarker(photo.marker);
+    	if(photo && photo.marker)
+			oms.removeMarker(photo.marker);
     };
 
 	function refreshNearby(setBounds)
@@ -220,20 +258,10 @@ InstaroundApp.controller('MapController', function($scope,$array,$http,$routePar
 
 // PostController
 //
-InstaroundApp.controller('PhotoController', function($scope,$routeParams,$location,$rootScope,$route,InstagramFactory){
-	
-	// This controller is going to set theaters
-	// variable for the $scope object in order for view to
-	// display its contents on the screen as html 
+InstaroundApp.controller('PhotoController', function($scope,$routeParams,$page,$location,$rootScope,$route,InstagramFactory){
+	$scope.page = $page;
+	$page.showHeader = true;
 	$scope.post = {};
-
-	// Just a housekeeping.
-	// In the init method we are declaring all the
-	// neccesarry settings and assignments
-	init();
-
-	function init(){
-	}
 
 	$scope.$watch(function() { return $location.path(); }, function(newValue, oldValue){  
 	    //if ($scope.loggedIn == false && newValue != '/login'){  
@@ -246,20 +274,42 @@ InstaroundApp.controller('PhotoController', function($scope,$routeParams,$locati
 
 // TheatersController
 //
-InstaroundApp.controller('TheatersController', function($scope,$routeParams,InstagramFactory){
-	
-	// This controller is going to set theaters
-	// variable for the $scope object in order for view to
-	// display its contents on the screen as html 
-	$scope.theaters = [];
+InstaroundApp.controller('PlacesController', function($scope,$page,$http,$routeParams,InstagramFactory){
+	$scope.page = $page;
+	$scope.places = [];
+	var lat,lon;
 
-	// Just a housekeeping.
-	// In the init method we are declaring all the
-	// neccesarry settings and assignments
-	init();
+	getLocation();
 
-	function init(){
-	}	
+	function getLocation(){
+		navigator.geolocation.getCurrentPosition(function(position) {
+		// Successfully retrieved the geolocation information. Display it all.
+        
+		/*$scope._setResults('Latitude: ' + position.coords.latitude + '<br />' +
+						 'Longitude: ' + position.coords.longitude + '<br />' +
+						 'Altitude: ' + position.coords.altitude + '<br />' +
+						 'Accuracy: ' + position.coords.accuracy + '<br />' +*/
+			lat = position.coords.latitude;
+			lon = position.coords.longitude;
+			$scope.searchNearby('');
+		},function(error){
+			alert(error);
+		});
+	}
+
+	$scope.query = '';
+	$scope.searchNearby = function()
+	{
+		InstagramFactory.getPlacesNearby(lat,lon,$scope.query).success(function(data){
+			$scope.places = data.response.venues.map(function(x){ 
+				return { id: x.id, name: x.name, distance: x.location.distance, hereNow: x.hereNow.count }; 
+			});
+		});
+	}
+
+	$scope.goToPlace = function(place){
+		window.open('instagram://location?id='+place.id,'_system');
+	};
 });
 
 // SettingsController
@@ -270,12 +320,8 @@ InstaroundApp.controller('SettingsController', function($scope){
 
 
 ///////////// FACTORIES ////////////////////////////
-
-// Defining recommendedMovies factory
-// It has 5 recomended movies and 
-// makes them awailable to controller
-// so it can pass values to the temmplate
 //
+
 InstaroundApp.factory('InstagramFactory', function($http,$array){
 	var posts = [];
 	return {
@@ -286,37 +332,45 @@ InstaroundApp.factory('InstagramFactory', function($http,$array){
 		}, posts: posts,
 		getPost: function (hash) {
 			return posts.filter(function(x){ return x.hash == hash})[0];
+		},
+		getPlacesNearby: function(lat,lon,query){
+			return $http.get('https://api.foursquare.com/v2/venues/search'
+												+'?client_id=RFHDATOVTQ5CUYISMBBAVGF3KHUVUNPIZUXAESUDMI5WMHM3'
+												+'&client_secret=5G5FJDMD4ADUHFQUQJXKCXXU2KDHMUTQE5ZY3ILPMQ5AS0IC'
+												+'&v=20130815'
+												+'&ll='+lat+','+lon
+												+'&query=' + query);
 		}
 	}
 });
 
-// Defining theatersFactory factory
-// In this example it has 5 movie theatres 
-// but in real live application you would 
-// want it to get this data from the web
-// service, based on the the movie selected
-// by user
-//
-InstaroundApp.factory('theatersFactory', function(){
-	var theaters = [
-		{ name: 'Everyman Walton', address: '85-89 High Street London'},
-		{ name: 'Ambassador Cinemas', address: 'Peacocks Centre Woking'},
-		{ name: 'ODEON Kingston', address: 'larence Street Kingston Upon Thames'},
-		{ name: 'Curzon Richmond', address: '3 Water Lane Richmond'},
-		{ name: 'ODEON Studio Richmond', address: '6 Red Lion Street Richmond'}
-	];
+InstaroundApp.factory('$page', function(){
+	var showHeader = false;
+	var backButtonVisible = false;
+	var backButtonFcn = function(){};
 
-	var factory = {};
-	factory.getTheaters = function(){
+	// mapcontroller variables, for when coming back to this view it look like it never changed
+	var lastCenter,lastZoom;
 
-		// If performing http communication to receive
-		// factory data, the best would be to put http
-		// communication code here and return the results
-		return theaters;
-	}
-
-	return factory;
+	return this;
 });
+
+
+function getGPS(cb,errorcb){
+	navigator.geolocation.getCurrentPosition(function(position) {
+	// Successfully retrieved the geolocation information. Display it all.
+    
+	/*$scope._setResults('Latitude: ' + position.coords.latitude + '<br />' +
+					 'Longitude: ' + position.coords.longitude + '<br />' +
+					 'Altitude: ' + position.coords.altitude + '<br />' +
+					 'Accuracy: ' + position.coords.accuracy + '<br />' +*/
+		cb(position.coords.latitude,position.coords.longitude);
+
+	},function(e){
+		cb(e);
+	});
+};
+
 
 function hashCode(s){
   return s.split("").reduce(function(a,b){a=((a<<5)-a)+b.charCodeAt(0);return a&a},0);              

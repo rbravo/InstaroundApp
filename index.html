@@ -18,14 +18,17 @@
     <script type="text/javascript" src="js/oms.min.js"></script>
     
   </head>
-  <body>
+  <body ng-controller="MainController">
 
     <style type="text/css">
 
       
     </style>
 
-    <header class="bar-title">
+    <header class="bar-title" ng-show="page.showHeader">
+    <a class="button-prev" ng-show="page.backButtonVisible" ng-click="page.backButtonFcn()">
+      Back
+    </a>
       <h1 class="title">Instaround</h1>
     </header>
 
@@ -41,7 +44,7 @@
         </a>
       </li>
       <li class="tab-item">
-        <a href="#/theaters">
+        <a href="#/places">
           <img class="tab-icon" src="img/icon-profile.png">
           <div class="tab-label">Places</div>
         </a>

@@ -114,6 +114,7 @@ var InstaroundApp = angular.module('InstaroundApp', ['ngRoute'])
     	});
 
 		oms = new OverlappingMarkerSpiderfier(map,{nearbyDistance:44});
+		window.oms = oms;
     	oms.addListener('click', function(marker, event) {
     		//console.log('go2post(marker.content)');
     		$page.backButtonVisible = true;
@@ -172,10 +173,14 @@ var InstaroundApp = angular.module('InstaroundApp', ['ngRoute'])
 			return;
 		}
 
-		// if(oldPhotos && oldPhotos.length > 150) {
-		// 	$array(oldPhotos).forEach(function(d){ removePhotoFromMap(d); });
-		// 	oldPhotos.length = 0;
-		// } 
+		/*if(oldPhotos && oldPhotos.length > 150) {
+		 	$array(oldPhotos).forEach(function(d){ 
+		 		removePhotoFromMap(d); 
+		 		var d2 = $array(newPhotos).getById(d.id);
+		 		newPhotos.splice(newPhotos.indexOf(d2),1); 
+		 	});
+		 	oldPhotos.length = 0;
+		}*/
 
 
         var $newPhotos = $array(newPhotos);
@@ -234,8 +239,14 @@ var InstaroundApp = angular.module('InstaroundApp', ['ngRoute'])
 
     function removePhotoFromMap(photo)
     {
-    	if(photo && photo.marker)
-			oms.removeMarker(photo.marker);
+    	if(photo)
+    	{
+    		var mk = oms.getMarkers().filter(function(k){ return k.hash == photo.hash })[0];
+    		if(mk){
+				oms.removeMarker(mk);
+				mk.setMap(null);
+    		}
+    	}
     };
 
 	function refreshNearby(setBounds)
@@ -244,6 +255,14 @@ var InstaroundApp = angular.module('InstaroundApp', ['ngRoute'])
 		// show loading: TODO
 
 		InstagramFactory.getNearby(lat,lon,function(data){
+			if(posts.length>150)
+			{
+				$array(posts).forEach(function(d){ 
+			 		removePhotoFromMap(d); 
+			 	});
+				oms.clearMarkers();
+				posts.length=0;
+			}
 			var $posts = $array(posts);			
 			$array(data.data).forEach(function(o){ 
 				if(!$posts.contains(o)){ 
